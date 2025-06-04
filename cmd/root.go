@@ -1,0 +1,27 @@
+package main
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"github.com/tylerkeyes/dot-sync/internal"
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "dot-sync",
+	Short: "A CLI tool for dotfile syncing",
+	Long:  `dot-sync is a CLI tool for managing and syncing dotfiles.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		internal.Placeholder()
+	},
+}
+
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func main() {
+	Execute()
+}
