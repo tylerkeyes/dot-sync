@@ -11,9 +11,12 @@ var rootCmd = &cobra.Command{
 	Use:   "dot-sync",
 	Short: "A CLI tool for dotfile syncing",
 	Long:  `dot-sync is a CLI tool for managing and syncing dotfiles.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		internal.Placeholder()
-	},
+}
+
+func init() {
+	rootCmd.AddCommand(internal.NewSyncCmd())
+	rootCmd.AddCommand(internal.NewPullCmd())
+	rootCmd.AddCommand(internal.NewMarkCmd())
 }
 
 func Execute() {
