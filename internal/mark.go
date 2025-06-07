@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tylerkeyes/dot-sync/internal/shared"
 )
 
 func NewMarkCmd() *cobra.Command {
@@ -19,6 +20,7 @@ func NewMarkCmd() *cobra.Command {
 }
 
 func markHandler(cmd *cobra.Command, args []string) {
+	// ctx := cmd.Context() // Only use if you need the storage provider
 	db, err := OpenDotSyncDB()
 	if err != nil {
 		fmt.Println("Failed to open .dot-sync.db:", err)
@@ -59,7 +61,7 @@ func argsAsFullPaths(args []string) []string {
 			// Relative path or single name
 			baseDir := cwd
 			if baseDir == "" {
-				baseDir = FindHomeDir()
+				baseDir = shared.FindHomeDir()
 			}
 			if strings.Contains(input, string(os.PathSeparator)) {
 				// Relative path: resolve to absolute path if possible

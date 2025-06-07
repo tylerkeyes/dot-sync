@@ -3,18 +3,25 @@ package internal
 import (
 	"database/sql"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/tylerkeyes/dot-sync/internal/shared"
 )
 
+const dotSyncDBName = ".dot-sync/state.db"
+
+type FileRecord struct {
+	ID   int
+	Path string
+}
+
 func OpenDotSyncDB() (*sql.DB, error) {
-	homeDir := FindHomeDir()
+	homeDir := shared.FindHomeDir()
 	if homeDir == "" {
 		return nil, fmt.Errorf("could not determine home directory")
 	}
-	dbPath := filepath.Join(homeDir, ".dot-sync.db")
+	dbPath := filepath.Join(homeDir, dotSyncDBName)
 	return sql.Open("sqlite3", dbPath)
 }
 
@@ -52,12 +59,33 @@ func InsertFiles(db *sql.DB, paths []string) error {
 	return tx.Commit()
 }
 
-func FindHomeDir() string {
-	baseDir := ""
-	if h := os.Getenv("HOME"); h != "" {
-		baseDir = h
-	} else if u, err := os.UserHomeDir(); err == nil {
-		baseDir = u
+func GetAllFilePaths(db *sql.DB) ([]FileRecord, error) {
+	rows, err := db.Query("SELECT id, path FROM files")
+	if err != nil {
+		return nil, err
 	}
-	return baseDir
+	defer rows.Close()
+	var records []FileRecord
+	for rows.Next() {
+		var rec FileRecord
+		if err := rows.Scan(&rec.ID, &rec.Path); err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+	return records, rows.Err()
+}
+
+func EnsureStorageTable(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS storage_provider (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		storage_type TEXT,
+		remote TEXT
+	)`)
+	return err
+}
+
+func InsertStorageProvider(db *sql.DB, storageType, remote string) error {
+	_, err := db.Exec(`INSERT INTO storage_provider (storage_type, remote) VALUES (?, ?)`, storageType, remote)
+	return err
 }
