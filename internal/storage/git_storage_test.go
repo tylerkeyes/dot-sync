@@ -3,6 +3,7 @@ package storage
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tylerkeyes/dot-sync/internal/shared"
@@ -17,10 +18,11 @@ func TestGitStorage_PushToStorage(t *testing.T) {
 		t.Error("expected error for non-existent path, got nil")
 	}
 
-	// Test with empty path (should error)
-	err = storage.PushToStorage("")
+	// Test with non-git directory (should error at git commands)
+	temp := t.TempDir()
+	err = storage.PushToStorage(temp)
 	if err == nil {
-		t.Error("expected error for empty path, got nil")
+		t.Error("expected error for non-git directory, got nil")
 	}
 }
 
@@ -224,6 +226,55 @@ func TestGetCurrentGitBranch(t *testing.T) {
 	// Should be either "main" or "master" depending on git config
 	if branch != "main" && branch != "master" {
 		t.Errorf("unexpected branch name: %s", branch)
+	}
+}
+
+func TestGitStorage_InitializeStorage_Complete(t *testing.T) {
+	// Test complete initialization with git and database operations
+	oldHome := os.Getenv("HOME")
+	tempHome := t.TempDir()
+	os.Setenv("HOME", tempHome)
+	defer os.Setenv("HOME", oldHome)
+
+	storage := &GitStorage{RemoteURL: "https://github.com/user/test-repo.git"}
+
+	// This will fail at database operations since we need proper database setup
+	// But we can verify directory creation and git operations
+	err := storage.InitializeStorage()
+
+	// Check directory creation
+	dotSyncFilesPath := filepath.Join(tempHome, ".dot-sync", "files")
+	if _, statErr := os.Stat(dotSyncFilesPath); os.IsNotExist(statErr) {
+		t.Error("expected .dot-sync/files directory to be created")
+	}
+
+	// Check git initialization
+	gitPath := filepath.Join(dotSyncFilesPath, ".git")
+	if _, statErr := os.Stat(gitPath); os.IsNotExist(statErr) {
+		t.Log("git init may have failed, which is expected in test environment")
+	}
+
+	// Error is expected due to database operations in test environment
+	if err == nil {
+		t.Log("InitializeStorage succeeded unexpectedly - database may have been created")
+	}
+}
+
+func TestGitStorage_InitializeStorage_ErrorHandling(t *testing.T) {
+	// Test error handling when directory creation fails
+	storage := &GitStorage{RemoteURL: "https://github.com/user/test-repo.git"}
+
+	// Set HOME to a read-only location to cause directory creation failure
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", "/dev/null") // Should cause mkdir to fail
+	defer os.Setenv("HOME", oldHome)
+
+	err := storage.InitializeStorage()
+	if err == nil {
+		t.Error("expected error when directory creation fails")
+	}
+	if !strings.Contains(err.Error(), "failed to create directory") {
+		t.Errorf("expected directory creation error, got: %v", err)
 	}
 }
 

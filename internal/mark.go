@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tylerkeyes/dot-sync/internal/db"
 	"github.com/tylerkeyes/dot-sync/internal/shared"
 )
 
@@ -21,14 +22,14 @@ func NewMarkCmd() *cobra.Command {
 
 func markHandler(cmd *cobra.Command, args []string) {
 	// ctx := cmd.Context() // Only use if you need the storage provider
-	db, err := OpenDotSyncDB()
+	database, err := db.OpenDotSyncDB()
 	if err != nil {
 		fmt.Println("Failed to open .dot-sync.db:", err)
 		return
 	}
-	defer db.Close()
+	defer database.Close()
 
-	if err := EnsureFilesTable(db); err != nil {
+	if err := db.EnsureFilesTable(database); err != nil {
 		fmt.Println("Failed to ensure files table:", err)
 		return
 	}
@@ -40,7 +41,7 @@ func markHandler(cmd *cobra.Command, args []string) {
 
 	// Add new entries from args
 	absPaths := argsAsFullPaths(args)
-	if err := InsertFiles(db, absPaths); err != nil {
+	if err := db.InsertFiles(database, absPaths); err != nil {
 		fmt.Printf("Failed to mark entries: %v\n", err)
 	}
 	fmt.Println("Marked entries for syncing:", absPaths)

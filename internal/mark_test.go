@@ -112,3 +112,64 @@ func TestMarkHandlerNoArgs(t *testing.T) {
 		t.Errorf("expected output to contain 'No changes.', got %q", output)
 	}
 }
+
+func TestMarkHandlerWithArgs(t *testing.T) {
+	// Create temporary home directory for test database
+	oldHome := os.Getenv("HOME")
+	tempHome := t.TempDir()
+	os.Setenv("HOME", tempHome)
+	defer os.Setenv("HOME", oldHome)
+
+	// Create .dot-sync directory
+	dotSyncPath := filepath.Join(tempHome, ".dot-sync")
+	os.MkdirAll(dotSyncPath, 0700)
+
+	// Create test files
+	testFile1 := filepath.Join(tempHome, "test1.txt")
+	testFile2 := filepath.Join(tempHome, "test2.txt")
+	os.WriteFile(testFile1, []byte("test1"), 0644)
+	os.WriteFile(testFile2, []byte("test2"), 0644)
+
+	// Capture stdout
+	var buf bytes.Buffer
+	orig := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	cmd := &cobra.Command{}
+	markHandler(cmd, []string{"test1.txt", "test2.txt"})
+
+	w.Close()
+	os.Stdout = orig
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "Marked entries for syncing") {
+		t.Errorf("expected output to contain 'Marked entries for syncing', got %q", output)
+	}
+}
+
+func TestMarkHandlerDatabaseError(t *testing.T) {
+	// Set invalid home directory to cause database error
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", "/invalid/nonexistent/path")
+	defer os.Setenv("HOME", oldHome)
+
+	// Capture stdout
+	var buf bytes.Buffer
+	orig := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	cmd := &cobra.Command{}
+	markHandler(cmd, []string{"test.txt"})
+
+	w.Close()
+	os.Stdout = orig
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "Failed to") {
+		t.Errorf("expected database error message, got %q", output)
+	}
+}

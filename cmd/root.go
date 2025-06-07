@@ -9,14 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tylerkeyes/dot-sync/internal"
+	"github.com/tylerkeyes/dot-sync/internal/db"
 	"github.com/tylerkeyes/dot-sync/internal/shared"
 	"github.com/tylerkeyes/dot-sync/internal/storage"
 )
-
-// contextKey is a type for context keys defined in this package.
-type contextKey string
-
-const storageProviderKey contextKey = "storageProvider"
 
 var rootCmd = &cobra.Command{
 	Use:   "dot-sync",
@@ -28,12 +24,16 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 		// Open DB and check for storage provider
-		db, err := internal.OpenDotSyncDB()
+		database, err := db.OpenDotSyncDB()
 		if err != nil {
 			return fmt.Errorf("failed to open .dot-sync.db: %v", err)
 		}
-		defer db.Close()
-		row := db.QueryRow("SELECT storage_type, remote FROM storage_provider ORDER BY id DESC LIMIT 1")
+		defer database.Close()
+		if err := db.EnsureStorageTable(database); err != nil {
+			return fmt.Errorf("failed to ensure storage_provider table: %w", err)
+		}
+
+		row := database.QueryRow("SELECT storage_type, remote FROM storage_provider ORDER BY id DESC LIMIT 1")
 		var storageType, remote string
 		if err := row.Scan(&storageType, &remote); err != nil {
 			if err == sql.ErrNoRows {
@@ -52,7 +52,7 @@ var rootCmd = &cobra.Command{
 		} else {
 			return fmt.Errorf("unsupported storage provider: %s", storageType)
 		}
-		ctx := context.WithValue(cmd.Context(), storageProviderKey, sp)
+		ctx := context.WithValue(cmd.Context(), shared.GetStorageProviderKey(), sp)
 		cmd.SetContext(ctx)
 		return nil
 	},

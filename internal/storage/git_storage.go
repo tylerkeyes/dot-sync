@@ -74,7 +74,7 @@ func (s *GitStorage) PushToStorage(filePath string) error {
 	if err != nil || branch == "" {
 		branch = "main"
 	}
-	if err := shared.RunCmd(filePath, "git", "push", "-u", "origin", branch); err != nil {
+	if err := shared.RunCmd(filePath, "git", "push", "--force", "-u", "origin", branch); err != nil {
 		return err
 	}
 

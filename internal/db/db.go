@@ -1,4 +1,4 @@
-package internal
+package db
 
 import (
 	"database/sql"
@@ -87,5 +87,19 @@ func EnsureStorageTable(db *sql.DB) error {
 
 func InsertStorageProvider(db *sql.DB, storageType, remote string) error {
 	_, err := db.Exec(`INSERT INTO storage_provider (storage_type, remote) VALUES (?, ?)`, storageType, remote)
+	return err
+}
+
+func GetStorageProvider(db *sql.DB) (string, string, error) {
+	row := db.QueryRow("SELECT storage_type, remote FROM storage_provider ORDER BY id DESC LIMIT 1")
+	var storageType, remote string
+	if err := row.Scan(&storageType, &remote); err != nil {
+		return "", "", err
+	}
+	return storageType, remote, nil
+}
+
+func UpdateStorageProvider(db *sql.DB, storageType, remote string) error {
+	_, err := db.Exec(`UPDATE storage_provider SET storage_type = ?, remote = ? WHERE id = (SELECT id FROM storage_provider ORDER BY id DESC LIMIT 1)`, storageType, remote)
 	return err
 }
