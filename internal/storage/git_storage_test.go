@@ -11,16 +11,16 @@ import (
 func TestGitStorage_PushToStorage(t *testing.T) {
 	storage := &GitStorage{RemoteURL: "https://github.com/user/repo.git"}
 
-	// Test basic functionality (should not error for now)
-	err := storage.PushToStorage("/some/path")
-	if err != nil {
-		t.Errorf("PushToStorage failed: %v", err)
+	// Test with non-existent path (should error)
+	err := storage.PushToStorage("/some/nonexistent/path")
+	if err == nil {
+		t.Error("expected error for non-existent path, got nil")
 	}
 
-	// Test with empty path
+	// Test with empty path (should error)
 	err = storage.PushToStorage("")
-	if err != nil {
-		t.Errorf("PushToStorage with empty path failed: %v", err)
+	if err == nil {
+		t.Error("expected error for empty path, got nil")
 	}
 }
 
