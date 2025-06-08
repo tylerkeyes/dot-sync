@@ -83,6 +83,25 @@ func (s *GitStorage) PushToStorage(filePath string) error {
 
 func (s *GitStorage) PullFromStorage(filePath string) error {
 	fmt.Println("Pulling contents from storage...")
+
+	if err := shared.RunCmd(filePath, "git", "fetch", "origin"); err != nil {
+		return fmt.Errorf("failed to fetch from remote: %w", err)
+	}
+
+	branch, err := getCurrentGitBranch(filePath)
+	if err != nil || branch == "" {
+		branch = "main"
+	}
+
+	// Reset any local changes and pull from remote
+	if err := shared.RunCmd(filePath, "git", "reset", "--hard", "origin/"+branch); err != nil {
+		return fmt.Errorf("failed to reset to remote state: %w", err)
+	}
+
+	if err := shared.RunCmd(filePath, "git", "clean", "-fd"); err != nil {
+		return fmt.Errorf("failed to clean untracked files: %w", err)
+	}
+
 	return nil
 }
 

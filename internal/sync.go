@@ -19,8 +19,6 @@ func NewSyncCmd() *cobra.Command {
 }
 
 func syncHandler(cmd *cobra.Command, args []string) {
-	// ctx := cmd.Context() // Only use if you need the storage provider
-
 	dotSyncFilesPath := filepath.Join(shared.FindHomeDir(), shared.GetDotSyncFilesDir())
 
 	database, err := db.OpenDotSyncDB()
@@ -42,7 +40,8 @@ func syncHandler(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	sp := cmd.Context().Value(shared.GetStorageProviderKey()).(storage.StorageProvider)
+	ctx := cmd.Context()
+	sp := ctx.Value(shared.GetStorageProviderKey()).(storage.StorageProvider)
 	if err := sp.PushToStorage(dotSyncFilesPath); err != nil {
 		fmt.Println("Failed to push to storage:", err)
 		return
