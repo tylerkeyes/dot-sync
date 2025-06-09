@@ -8,6 +8,20 @@ This tool will allow marking certain files or directories, then pushing or pulli
 This remote will likely be a github repo / gist, or other centralized location.
 There would still be the issue of forgetting to sync my changes, but having a single command should aid my laziness.
 
+An alternative to this tool is keeping your configuration files in a `dotfiles/` directory, then creating symlinks to the
+locations they are expected to be in. This tool takes a less instrusive approach by keeping the source files where they
+are, and allows you to easily grow and shrink the number of tracked files on the fly.
+
+## Installation
+
+Install dot-sync using Go:
+
+```bash
+go install github.com/tylerkeyes/dot-sync@latest
+```
+
+Make sure your `$GOPATH/bin` (or `$GOBIN`) is in your `$PATH` to run the `dot-sync` command.
+
 ## Usage
 
 ### Initial Setup
