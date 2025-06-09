@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Constants
@@ -43,6 +44,67 @@ func FindHomeDir() string {
 		baseDir = u
 	}
 	return baseDir
+}
+
+// Path conversion utilities for cross-device compatibility
+
+// ToStoragePath converts an absolute path to a storage path by replacing
+// the home directory with "HOME" placeholder if the path is within home directory
+func ToStoragePath(absolutePath string) string {
+	homeDir := FindHomeDir()
+	if homeDir == "" {
+		return absolutePath
+	}
+
+	// Clean both paths to ensure consistent separators
+	cleanHome := filepath.Clean(homeDir)
+	cleanPath := filepath.Clean(absolutePath)
+
+	// Check if the path is within the home directory
+	if strings.HasPrefix(cleanPath, cleanHome) {
+		// Get the relative path from home
+		relPath, err := filepath.Rel(cleanHome, cleanPath)
+		if err != nil {
+			return absolutePath
+		}
+
+		// If it's exactly the home directory
+		if relPath == "." {
+			return "HOME"
+		}
+
+		// Return with HOME placeholder
+		return filepath.Join("HOME", relPath)
+	}
+
+	// If not in home directory, return as-is
+	return absolutePath
+}
+
+// FromStoragePath converts a storage path back to an absolute path by replacing
+// "HOME" placeholder with the current machine's home directory
+func FromStoragePath(storagePath string) string {
+	if !strings.HasPrefix(storagePath, "HOME") {
+		return storagePath
+	}
+
+	homeDir := FindHomeDir()
+	if homeDir == "" {
+		return storagePath
+	}
+
+	// If it's exactly "HOME"
+	if storagePath == "HOME" {
+		return homeDir
+	}
+
+	// If it starts with "HOME/"
+	if strings.HasPrefix(storagePath, "HOME"+string(filepath.Separator)) {
+		relPath := storagePath[len("HOME"+string(filepath.Separator)):]
+		return filepath.Join(homeDir, relPath)
+	}
+
+	return storagePath
 }
 
 // File copy utilities

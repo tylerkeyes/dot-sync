@@ -32,7 +32,9 @@ func EnsureFilesTable(db *sql.DB) error {
 }
 
 func InsertFile(db *sql.DB, path string) error {
-	_, err := db.Exec(`INSERT OR IGNORE INTO files (path) VALUES (?)`, path)
+	// Convert absolute path to storage path before inserting
+	storagePath := shared.ToStoragePath(path)
+	_, err := db.Exec(`INSERT OR IGNORE INTO files (path) VALUES (?)`, storagePath)
 	return err
 }
 
@@ -52,7 +54,9 @@ func InsertFiles(db *sql.DB, paths []string) error {
 	}
 	defer stmt.Close()
 	for _, path := range paths {
-		if _, err := stmt.Exec(path); err != nil {
+		// Convert absolute path to storage path before inserting
+		storagePath := shared.ToStoragePath(path)
+		if _, err := stmt.Exec(storagePath); err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -72,6 +76,8 @@ func GetAllFilePaths(db *sql.DB) ([]FileRecord, error) {
 		if err := rows.Scan(&rec.ID, &rec.Path); err != nil {
 			return nil, err
 		}
+		// Convert storage path back to absolute path when retrieving
+		rec.Path = shared.FromStoragePath(rec.Path)
 		records = append(records, rec)
 	}
 	return records, rows.Err()
@@ -110,14 +116,20 @@ func GetFileRecordsByPaths(db *sql.DB, paths []string) ([]FileRecord, error) {
 		return []FileRecord{}, nil
 	}
 
+	// Convert absolute paths to storage paths for querying
+	storagePaths := make([]string, len(paths))
+	for i, path := range paths {
+		storagePaths[i] = shared.ToStoragePath(path)
+	}
+
 	// Build the query with placeholders for the IN clause
 	query := "SELECT id, path FROM files WHERE path IN ("
-	placeholders := make([]string, len(paths))
-	args := make([]interface{}, len(paths))
+	placeholders := make([]string, len(storagePaths))
+	args := make([]interface{}, len(storagePaths))
 
-	for i, path := range paths {
+	for i, storagePath := range storagePaths {
 		placeholders[i] = "?"
-		args[i] = path
+		args[i] = storagePath
 	}
 
 	query += strings.Join(placeholders, ",") + ")"
@@ -134,6 +146,8 @@ func GetFileRecordsByPaths(db *sql.DB, paths []string) ([]FileRecord, error) {
 		if err := rows.Scan(&rec.ID, &rec.Path); err != nil {
 			return nil, err
 		}
+		// Convert storage path back to absolute path when retrieving
+		rec.Path = shared.FromStoragePath(rec.Path)
 		records = append(records, rec)
 	}
 	return records, rows.Err()

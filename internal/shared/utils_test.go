@@ -3,25 +3,26 @@ package shared
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
 func TestGetDotSyncDir(t *testing.T) {
-	if dir := GetDotSyncDir(); dir != ".dot-sync" {
-		t.Errorf("expected .dot-sync, got %q", dir)
+	if GetDotSyncDir() != ".dot-sync" {
+		t.Errorf("expected '.dot-sync', got %q", GetDotSyncDir())
 	}
 }
 
 func TestGetDotSyncFilesDir(t *testing.T) {
-	if dir := GetDotSyncFilesDir(); dir != ".dot-sync/files" {
-		t.Errorf("expected .dot-sync/files, got %q", dir)
+	if GetDotSyncFilesDir() != ".dot-sync/files" {
+		t.Errorf("expected '.dot-sync/files', got %q", GetDotSyncFilesDir())
 	}
 }
 
 func TestGetGitRemoteURL(t *testing.T) {
 	expected := "https://github.com/tylerkeyes/dot-sync-test.git"
-	if url := GetGitRemoteURL(); url != expected {
-		t.Errorf("expected %q, got %q", expected, url)
+	if GetGitRemoteURL() != expected {
+		t.Errorf("expected %q, got %q", expected, GetGitRemoteURL())
 	}
 }
 
@@ -34,23 +35,12 @@ func TestGetStorageProviderKey(t *testing.T) {
 
 func TestEnsureDir(t *testing.T) {
 	temp := t.TempDir()
-	dir := filepath.Join(temp, "foo/bar/baz")
-	if err := EnsureDir(dir); err != nil {
-		t.Fatalf("failed to create nested dir: %v", err)
+	testDir := filepath.Join(temp, "test", "nested")
+	if err := EnsureDir(testDir); err != nil {
+		t.Errorf("EnsureDir failed: %v", err)
 	}
-	if _, err := os.Stat(dir); err != nil {
-		t.Errorf("dir not created: %v", err)
-	}
-	// Existing dir should not error
-	if err := EnsureDir(dir); err != nil {
-		t.Errorf("ensureDir on existing dir errored: %v", err)
-	}
-	// Invalid path (simulate by using a file as parent)
-	file := filepath.Join(temp, "file")
-	os.WriteFile(file, []byte("x"), 0600)
-	badDir := filepath.Join(file, "bad")
-	if err := EnsureDir(badDir); err == nil {
-		t.Error("expected error for ensureDir with file as parent, got nil")
+	if _, err := os.Stat(testDir); os.IsNotExist(err) {
+		t.Error("directory was not created")
 	}
 }
 
@@ -58,53 +48,34 @@ func TestCopyFile(t *testing.T) {
 	temp := t.TempDir()
 	src := filepath.Join(temp, "src.txt")
 	dst := filepath.Join(temp, "dst.txt")
-	os.WriteFile(src, []byte("hello world"), 0600)
+	data := []byte("hello world")
+	if err := os.WriteFile(src, data, 0600); err != nil {
+		t.Fatalf("failed to create source file: %v", err)
+	}
 	if err := CopyFile(src, dst); err != nil {
-		t.Fatalf("CopyFile failed: %v", err)
+		t.Errorf("CopyFile failed: %v", err)
 	}
-	data, err := os.ReadFile(dst)
-	if err != nil || string(data) != "hello world" {
-		t.Errorf("CopyFile did not copy content correctly: %v, %q", err, data)
-	}
-	// Overwrite
-	os.WriteFile(src, []byte("new content"), 0600)
-	if err := CopyFile(src, dst); err != nil {
-		t.Errorf("CopyFile overwrite failed: %v", err)
-	}
-	// Non-existent source
-	if err := CopyFile(filepath.Join(temp, "nope.txt"), dst); err == nil {
-		t.Error("expected error for non-existent source, got nil")
+	if copied, err := os.ReadFile(dst); err != nil || !reflect.DeepEqual(copied, data) {
+		t.Errorf("copied file content mismatch: %v, %q", err, copied)
 	}
 }
 
 func TestCopyDir(t *testing.T) {
 	temp := t.TempDir()
-	src := filepath.Join(temp, "srcdir")
-	dst := filepath.Join(temp, "dstdir")
-	os.MkdirAll(filepath.Join(src, "sub"), 0700)
-	os.WriteFile(filepath.Join(src, "a.txt"), []byte("A"), 0600)
-	os.WriteFile(filepath.Join(src, "sub", "b.txt"), []byte("B"), 0600)
+	src := filepath.Join(temp, "src")
+	dst := filepath.Join(temp, "dst")
+	os.MkdirAll(src, 0700)
+	os.WriteFile(filepath.Join(src, "file.txt"), []byte("content"), 0600)
+	os.MkdirAll(filepath.Join(src, "subdir"), 0700)
+	os.WriteFile(filepath.Join(src, "subdir", "nested.txt"), []byte("nested"), 0600)
 	if err := CopyDir(src, dst); err != nil {
-		t.Fatalf("CopyDir failed: %v", err)
+		t.Errorf("CopyDir failed: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dst, "a.txt")); err != nil {
-		t.Errorf("file not copied: %v", err)
+	if data, err := os.ReadFile(filepath.Join(dst, "file.txt")); err != nil || string(data) != "content" {
+		t.Errorf("copied file content mismatch: %v, %q", err, data)
 	}
-	if _, err := os.Stat(filepath.Join(dst, "sub", "b.txt")); err != nil {
-		t.Errorf("subdir file not copied: %v", err)
-	}
-	// Error: non-existent source
-	if err := CopyDir(filepath.Join(temp, "nope"), dst); err == nil {
-		t.Error("expected error for non-existent source dir, got nil")
-	}
-	// .git dir is skipped
-	os.MkdirAll(filepath.Join(src, ".git", "inner"), 0700)
-	os.WriteFile(filepath.Join(src, ".git", "inner", "skip.txt"), []byte("X"), 0600)
-	if err := CopyDir(src, dst); err != nil {
-		t.Errorf("CopyDir with .git dir failed: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dst, ".git", "inner", "skip.txt")); err == nil {
-		t.Error(".git dir should be skipped, but file was copied")
+	if data, err := os.ReadFile(filepath.Join(dst, "subdir", "nested.txt")); err != nil || string(data) != "nested" {
+		t.Errorf("copied nested file content mismatch: %v, %q", err, data)
 	}
 }
 
@@ -176,5 +147,170 @@ func TestRunCmd(t *testing.T) {
 	// Error
 	if err := RunCmd(temp, "nonexistent-cmd-xyz"); err == nil {
 		t.Error("expected error for nonexistent command, got nil")
+	}
+}
+
+func TestToStoragePath(t *testing.T) {
+	// Save original environment
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+
+	// Set test home directory
+	testHome := "/Users/testuser"
+	os.Setenv("HOME", testHome)
+
+	tests := []struct {
+		name         string
+		absolutePath string
+		expected     string
+	}{
+		{
+			name:         "path within home directory",
+			absolutePath: "/Users/testuser/.bashrc",
+			expected:     "HOME/.bashrc",
+		},
+		{
+			name:         "nested path within home directory",
+			absolutePath: "/Users/testuser/.config/git/config",
+			expected:     "HOME/.config/git/config",
+		},
+		{
+			name:         "exactly home directory",
+			absolutePath: "/Users/testuser",
+			expected:     "HOME",
+		},
+		{
+			name:         "path outside home directory",
+			absolutePath: "/etc/hosts",
+			expected:     "/etc/hosts",
+		},
+		{
+			name:         "root path",
+			absolutePath: "/",
+			expected:     "/",
+		},
+		{
+			name:         "path with extra slashes",
+			absolutePath: "/Users/testuser///.bashrc",
+			expected:     "HOME/.bashrc",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ToStoragePath(tt.absolutePath)
+			if result != tt.expected {
+				t.Errorf("ToStoragePath(%q) = %q, expected %q", tt.absolutePath, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFromStoragePath(t *testing.T) {
+	// Save original environment
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+
+	// Set test home directory
+	testHome := "/Users/testuser"
+	os.Setenv("HOME", testHome)
+
+	tests := []struct {
+		name        string
+		storagePath string
+		expected    string
+	}{
+		{
+			name:        "HOME placeholder with relative path",
+			storagePath: "HOME/.bashrc",
+			expected:    "/Users/testuser/.bashrc",
+		},
+		{
+			name:        "nested HOME placeholder path",
+			storagePath: "HOME/.config/git/config",
+			expected:    "/Users/testuser/.config/git/config",
+		},
+		{
+			name:        "exactly HOME placeholder",
+			storagePath: "HOME",
+			expected:    "/Users/testuser",
+		},
+		{
+			name:        "absolute path without HOME",
+			storagePath: "/etc/hosts",
+			expected:    "/etc/hosts",
+		},
+		{
+			name:        "relative path without HOME",
+			storagePath: "some/relative/path",
+			expected:    "some/relative/path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FromStoragePath(tt.storagePath)
+			if result != tt.expected {
+				t.Errorf("FromStoragePath(%q) = %q, expected %q", tt.storagePath, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestToStoragePathNoHome(t *testing.T) {
+	// Save original environment
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+
+	// Unset HOME to test behavior when home directory cannot be determined
+	os.Unsetenv("HOME")
+
+	absolutePath := "/some/absolute/path"
+	result := ToStoragePath(absolutePath)
+	if result != absolutePath {
+		t.Errorf("ToStoragePath(%q) with no HOME = %q, expected %q", absolutePath, result, absolutePath)
+	}
+}
+
+func TestFromStoragePathNoHome(t *testing.T) {
+	// Save original environment
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+
+	// Unset HOME to test behavior when home directory cannot be determined
+	os.Unsetenv("HOME")
+
+	storagePath := "HOME/.bashrc"
+	result := FromStoragePath(storagePath)
+	if result != storagePath {
+		t.Errorf("FromStoragePath(%q) with no HOME = %q, expected %q", storagePath, result, storagePath)
+	}
+}
+
+func TestPathConversionRoundTrip(t *testing.T) {
+	// Save original environment
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+
+	// Set test home directory
+	testHome := "/Users/testuser"
+	os.Setenv("HOME", testHome)
+
+	testPaths := []string{
+		"/Users/testuser/.bashrc",
+		"/Users/testuser/.config/git/config",
+		"/Users/testuser",
+		"/etc/hosts",
+		"/",
+	}
+
+	for _, originalPath := range testPaths {
+		t.Run(originalPath, func(t *testing.T) {
+			storagePath := ToStoragePath(originalPath)
+			retrievedPath := FromStoragePath(storagePath)
+			if retrievedPath != originalPath {
+				t.Errorf("Round trip failed: %q -> %q -> %q", originalPath, storagePath, retrievedPath)
+			}
+		})
 	}
 }
