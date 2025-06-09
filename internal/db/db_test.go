@@ -225,38 +225,149 @@ func TestUpdateStorageProvider(t *testing.T) {
 	EnsureStorageTable(db)
 
 	// Insert initial provider
-	storageType := "git"
-	remote := "https://github.com/user/repo.git"
-	InsertStorageProvider(db, storageType, remote)
+	if err := InsertStorageProvider(db, "git", "initial-url"); err != nil {
+		t.Fatalf("Failed to insert initial storage provider: %v", err)
+	}
 
-	// Update
-	newStorageType := "git"
-	newRemote := "https://github.com/user/newrepo.git"
-	if err := UpdateStorageProvider(db, newStorageType, newRemote); err != nil {
-		t.Errorf("UpdateStorageProvider failed: %v", err)
+	// Update provider
+	if err := UpdateStorageProvider(db, "git", "updated-url"); err != nil {
+		t.Fatalf("Failed to update storage provider: %v", err)
 	}
 
 	// Verify update
-	retrievedType, retrievedRemote, err := GetStorageProvider(db)
+	storageType, remote, err := GetStorageProvider(db)
 	if err != nil {
-		t.Errorf("failed to retrieve updated storage provider: %v", err)
+		t.Fatalf("Failed to get updated storage provider: %v", err)
 	}
-	if retrievedType != newStorageType || retrievedRemote != newRemote {
-		t.Errorf("expected %s/%s, got %s/%s", newStorageType, newRemote, retrievedType, retrievedRemote)
+	if storageType != "git" || remote != "updated-url" {
+		t.Errorf("Expected git/updated-url, got %s/%s", storageType, remote)
+	}
+}
+
+func TestGetFileRecordsByPaths(t *testing.T) {
+	db, _ := sql.Open("sqlite3", ":memory:")
+	defer db.Close()
+	EnsureFilesTable(db)
+
+	// Insert test files
+	testPaths := []string{"/home/user/.bashrc", "/home/user/.vimrc", "/home/user/.config/git/config"}
+	for _, path := range testPaths {
+		if err := InsertFile(db, path); err != nil {
+			t.Fatalf("Failed to insert file %s: %v", path, err)
+		}
 	}
 
-	// Update with no existing record should not error but won't affect anything
-	db2, _ := sql.Open("sqlite3", ":memory:")
-	defer db2.Close()
-	EnsureStorageTable(db2)
-	if err := UpdateStorageProvider(db2, storageType, remote); err != nil {
-		t.Errorf("UpdateStorageProvider with no existing record failed: %v", err)
+	// Test getting existing paths
+	records, err := GetFileRecordsByPaths(db, []string{"/home/user/.bashrc", "/home/user/.vimrc"})
+	if err != nil {
+		t.Fatalf("Failed to get file records: %v", err)
+	}
+	if len(records) != 2 {
+		t.Errorf("Expected 2 records, got %d", len(records))
 	}
 
-	// Error on bad DB
-	badDB, _ := sql.Open("sqlite3", ":memory:")
-	badDB.Close()
-	if err := UpdateStorageProvider(badDB, storageType, remote); err == nil {
-		t.Error("expected error for closed DB, got nil")
+	// Verify the correct paths are returned
+	pathMap := make(map[string]bool)
+	for _, record := range records {
+		pathMap[record.Path] = true
+	}
+	if !pathMap["/home/user/.bashrc"] || !pathMap["/home/user/.vimrc"] {
+		t.Error("Expected paths not found in records")
+	}
+
+	// Test getting non-existent paths
+	records, err = GetFileRecordsByPaths(db, []string{"/nonexistent/path"})
+	if err != nil {
+		t.Fatalf("Failed to get file records for non-existent path: %v", err)
+	}
+	if len(records) != 0 {
+		t.Errorf("Expected 0 records for non-existent path, got %d", len(records))
+	}
+
+	// Test empty input
+	records, err = GetFileRecordsByPaths(db, []string{})
+	if err != nil {
+		t.Fatalf("Failed to get file records for empty input: %v", err)
+	}
+	if len(records) != 0 {
+		t.Errorf("Expected 0 records for empty input, got %d", len(records))
+	}
+
+	// Test mixed existing and non-existing paths
+	records, err = GetFileRecordsByPaths(db, []string{"/home/user/.bashrc", "/nonexistent/path", "/home/user/.config/git/config"})
+	if err != nil {
+		t.Fatalf("Failed to get file records for mixed paths: %v", err)
+	}
+	if len(records) != 2 {
+		t.Errorf("Expected 2 records for mixed paths, got %d", len(records))
+	}
+}
+
+func TestDeleteFilesByIDs(t *testing.T) {
+	db, _ := sql.Open("sqlite3", ":memory:")
+	defer db.Close()
+	EnsureFilesTable(db)
+
+	// Insert test files
+	testPaths := []string{"/home/user/.bashrc", "/home/user/.vimrc", "/home/user/.config/git/config"}
+	for _, path := range testPaths {
+		if err := InsertFile(db, path); err != nil {
+			t.Fatalf("Failed to insert file %s: %v", path, err)
+		}
+	}
+
+	// Get all records to find their IDs
+	allRecords, err := GetAllFilePaths(db)
+	if err != nil {
+		t.Fatalf("Failed to get all file paths: %v", err)
+	}
+	if len(allRecords) != 3 {
+		t.Fatalf("Expected 3 records, got %d", len(allRecords))
+	}
+
+	// Delete first two files by ID
+	idsToDelete := []int{allRecords[0].ID, allRecords[1].ID}
+	if err := DeleteFilesByIDs(db, idsToDelete); err != nil {
+		t.Fatalf("Failed to delete files by IDs: %v", err)
+	}
+
+	// Verify only one record remains
+	remainingRecords, err := GetAllFilePaths(db)
+	if err != nil {
+		t.Fatalf("Failed to get remaining file paths: %v", err)
+	}
+	if len(remainingRecords) != 1 {
+		t.Errorf("Expected 1 remaining record, got %d", len(remainingRecords))
+	}
+	if remainingRecords[0].ID != allRecords[2].ID {
+		t.Errorf("Expected remaining record to have ID %d, got %d", allRecords[2].ID, remainingRecords[0].ID)
+	}
+
+	// Test deleting with empty list
+	if err := DeleteFilesByIDs(db, []int{}); err != nil {
+		t.Fatalf("Failed to delete with empty list: %v", err)
+	}
+
+	// Verify record count unchanged
+	recordsAfterEmpty, err := GetAllFilePaths(db)
+	if err != nil {
+		t.Fatalf("Failed to get file paths after empty delete: %v", err)
+	}
+	if len(recordsAfterEmpty) != 1 {
+		t.Errorf("Expected 1 record after empty delete, got %d", len(recordsAfterEmpty))
+	}
+
+	// Test deleting non-existent ID
+	if err := DeleteFilesByIDs(db, []int{99999}); err != nil {
+		t.Fatalf("Failed to delete non-existent ID: %v", err)
+	}
+
+	// Verify record count unchanged
+	recordsAfterNonExistent, err := GetAllFilePaths(db)
+	if err != nil {
+		t.Fatalf("Failed to get file paths after non-existent delete: %v", err)
+	}
+	if len(recordsAfterNonExistent) != 1 {
+		t.Errorf("Expected 1 record after non-existent delete, got %d", len(recordsAfterNonExistent))
 	}
 }

@@ -63,6 +63,7 @@ func init() {
 	rootCmd.AddCommand(internal.NewPullCmd())
 	rootCmd.AddCommand(internal.NewMarkCmd())
 	rootCmd.AddCommand(internal.NewShowCmd())
+	rootCmd.AddCommand(internal.NewDeleteCmd())
 	rootCmd.AddCommand(storage.NewStorageProviderCmd())
 
 	home := shared.FindHomeDir()

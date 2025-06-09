@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/tylerkeyes/dot-sync/internal/shared"
@@ -102,4 +103,66 @@ func GetStorageProvider(db *sql.DB) (string, string, error) {
 func UpdateStorageProvider(db *sql.DB, storageType, remote string) error {
 	_, err := db.Exec(`UPDATE storage_provider SET storage_type = ?, remote = ? WHERE id = (SELECT id FROM storage_provider ORDER BY id DESC LIMIT 1)`, storageType, remote)
 	return err
+}
+
+func GetFileRecordsByPaths(db *sql.DB, paths []string) ([]FileRecord, error) {
+	if len(paths) == 0 {
+		return []FileRecord{}, nil
+	}
+
+	// Build the query with placeholders for the IN clause
+	query := "SELECT id, path FROM files WHERE path IN ("
+	placeholders := make([]string, len(paths))
+	args := make([]interface{}, len(paths))
+
+	for i, path := range paths {
+		placeholders[i] = "?"
+		args[i] = path
+	}
+
+	query += strings.Join(placeholders, ",") + ")"
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []FileRecord
+	for rows.Next() {
+		var rec FileRecord
+		if err := rows.Scan(&rec.ID, &rec.Path); err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+	return records, rows.Err()
+}
+
+func DeleteFilesByIDs(db *sql.DB, ids []int) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// Use a transaction for batch delete
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.Prepare("DELETE FROM files WHERE id = ?")
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	defer stmt.Close()
+
+	for _, id := range ids {
+		if _, err := stmt.Exec(id); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
