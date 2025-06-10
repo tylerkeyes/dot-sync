@@ -16,7 +16,7 @@ type GitStorage struct {
 
 func (s *GitStorage) InitializeStorage() error {
 	home := shared.FindHomeDir()
-	dir := filepath.Join(home, shared.GetDotSyncFilesDir())
+	dir := filepath.Join(home, shared.GetDotSyncDir())
 
 	// Ensure the directory exists before running git commands
 	if err := shared.EnsureDir(dir); err != nil {

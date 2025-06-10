@@ -20,6 +20,7 @@ func NewSyncCmd() *cobra.Command {
 
 func syncHandler(cmd *cobra.Command, args []string) {
 	dotSyncFilesPath := filepath.Join(shared.FindHomeDir(), shared.GetDotSyncFilesDir())
+	dotSyncDir := filepath.Join(shared.FindHomeDir(), shared.GetDotSyncDir())
 
 	database, err := db.OpenDotSyncDB()
 	if err != nil {
@@ -42,7 +43,7 @@ func syncHandler(cmd *cobra.Command, args []string) {
 
 	ctx := cmd.Context()
 	sp := ctx.Value(shared.GetStorageProviderKey()).(storage.StorageProvider)
-	if err := sp.PushToStorage(dotSyncFilesPath); err != nil {
+	if err := sp.PushToStorage(dotSyncDir); err != nil {
 		fmt.Println("Failed to push to storage:", err)
 		return
 	}

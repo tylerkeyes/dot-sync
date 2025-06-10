@@ -5,3 +5,6 @@ build:
 
 run: build
 	./$(APP_NAME)
+
+test:
+	go test ./...

@@ -24,6 +24,7 @@ func pullHandler(cmd *cobra.Command, args []string) {
 
 	// Get the .dot-sync/files directory path
 	dotSyncFilesPath := filepath.Join(shared.FindHomeDir(), shared.GetDotSyncFilesDir())
+	dotSyncDir := filepath.Join(shared.FindHomeDir(), shared.GetDotSyncDir())
 
 	// Ensure the .dot-sync/files directory exists
 	if err := shared.EnsureDir(dotSyncFilesPath); err != nil {
@@ -40,7 +41,7 @@ func pullHandler(cmd *cobra.Command, args []string) {
 	}
 
 	// Pull from remote storage
-	if err := sp.PullFromStorage(dotSyncFilesPath); err != nil {
+	if err := sp.PullFromStorage(dotSyncDir); err != nil {
 		fmt.Println("Failed to pull from storage:", err)
 		return
 	}

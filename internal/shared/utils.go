@@ -20,10 +20,6 @@ func GetDotSyncFilesDir() string {
 	return ".dot-sync/files"
 }
 
-func GetGitRemoteURL() string {
-	return "https://github.com/tylerkeyes/dot-sync-test.git"
-}
-
 type contextKey string
 
 func GetStorageProviderKey() contextKey {
