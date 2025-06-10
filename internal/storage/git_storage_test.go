@@ -137,8 +137,9 @@ func TestGitStorage_InitializeStorage_Complete(t *testing.T) {
 		t.Error("expected .dot-sync/files directory to be created")
 	}
 
-	// Check git initialization
-	gitPath := filepath.Join(dotSyncFilesPath, ".git")
+	// Check git initialization - git repo is created in .dot-sync directory, not .dot-sync/files
+	dotSyncPath := filepath.Join(tempHome, ".dot-sync")
+	gitPath := filepath.Join(dotSyncPath, ".git")
 	if _, statErr := os.Stat(gitPath); os.IsNotExist(statErr) {
 		t.Log("git init may have failed, which is expected in test environment")
 	}
@@ -383,8 +384,9 @@ func TestGitStorage_InitializeStorage_DirectoryCreation(t *testing.T) {
 		t.Error("expected .dot-sync/files directory to be created")
 	}
 
-	// The git operations should also be attempted
-	gitPath := filepath.Join(dotSyncFilesPath, ".git")
+	// The git operations should also be attempted - git repo is created in .dot-sync directory, not .dot-sync/files
+	dotSyncPath := filepath.Join(tempHome, ".dot-sync")
+	gitPath := filepath.Join(dotSyncPath, ".git")
 	if _, err := os.Stat(gitPath); os.IsNotExist(err) {
 		// Git init might fail in test environment, that's ok
 		t.Log("git init may have failed, which is expected in test environment")

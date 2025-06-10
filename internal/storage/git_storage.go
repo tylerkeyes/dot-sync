@@ -16,11 +16,15 @@ type GitStorage struct {
 
 func (s *GitStorage) InitializeStorage() error {
 	home := shared.FindHomeDir()
-	dir := filepath.Join(home, shared.GetDotSyncFilesDir())
+	dir := filepath.Join(home, shared.GetDotSyncDir())
+	filesDir := filepath.Join(home, shared.GetDotSyncFilesDir())
 
-	// Ensure the directory exists before running git commands
+	// Ensure both directories exist before running git commands
 	if err := shared.EnsureDir(dir); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
+	}
+	if err := shared.EnsureDir(filesDir); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", filesDir, err)
 	}
 
 	// Initialize git repo if not already

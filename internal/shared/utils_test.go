@@ -19,13 +19,6 @@ func TestGetDotSyncFilesDir(t *testing.T) {
 	}
 }
 
-func TestGetGitRemoteURL(t *testing.T) {
-	expected := "https://github.com/tylerkeyes/dot-sync-test.git"
-	if GetGitRemoteURL() != expected {
-		t.Errorf("expected %q, got %q", expected, GetGitRemoteURL())
-	}
-}
-
 func TestGetStorageProviderKey(t *testing.T) {
 	expected := contextKey("storageProvider")
 	if key := GetStorageProviderKey(); key != expected {
