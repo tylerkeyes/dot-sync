@@ -83,34 +83,6 @@ func GetAllFilePaths(db *sql.DB) ([]FileRecord, error) {
 	return records, rows.Err()
 }
 
-func EnsureStorageTable(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS storage_provider (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		storage_type TEXT,
-		remote TEXT
-	)`)
-	return err
-}
-
-func InsertStorageProvider(db *sql.DB, storageType, remote string) error {
-	_, err := db.Exec(`INSERT INTO storage_provider (storage_type, remote) VALUES (?, ?)`, storageType, remote)
-	return err
-}
-
-func GetStorageProvider(db *sql.DB) (string, string, error) {
-	row := db.QueryRow("SELECT storage_type, remote FROM storage_provider ORDER BY id DESC LIMIT 1")
-	var storageType, remote string
-	if err := row.Scan(&storageType, &remote); err != nil {
-		return "", "", err
-	}
-	return storageType, remote, nil
-}
-
-func UpdateStorageProvider(db *sql.DB, storageType, remote string) error {
-	_, err := db.Exec(`UPDATE storage_provider SET storage_type = ?, remote = ? WHERE id = (SELECT id FROM storage_provider ORDER BY id DESC LIMIT 1)`, storageType, remote)
-	return err
-}
-
 func GetFileRecordsByPaths(db *sql.DB, paths []string) ([]FileRecord, error) {
 	if len(paths) == 0 {
 		return []FileRecord{}, nil
@@ -125,7 +97,7 @@ func GetFileRecordsByPaths(db *sql.DB, paths []string) ([]FileRecord, error) {
 	// Build the query with placeholders for the IN clause
 	query := "SELECT id, path FROM files WHERE path IN ("
 	placeholders := make([]string, len(storagePaths))
-	args := make([]interface{}, len(storagePaths))
+	args := make([]any, len(storagePaths))
 
 	for i, storagePath := range storagePaths {
 		placeholders[i] = "?"
@@ -179,4 +151,33 @@ func DeleteFilesByIDs(db *sql.DB, ids []int) error {
 	}
 
 	return tx.Commit()
+}
+
+func EnsureStorageTable(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS storage_provider (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		storage_type TEXT,
+		remote TEXT
+	)`)
+	return err
+}
+
+func InsertStorageProvider(db *sql.DB, storageType, remote string) error {
+	_, err := db.Exec(`INSERT INTO storage_provider (storage_type, remote) VALUES (?, ?)`, storageType, remote)
+	return err
+}
+
+func GetStorageProvider(db *sql.DB) (string, string, error) {
+	row := db.QueryRow("SELECT storage_type, remote FROM storage_provider ORDER BY id DESC LIMIT 1")
+	var storageType, remote string
+	if err := row.Scan(&storageType, &remote); err != nil {
+		return "", "", err
+	}
+	return storageType, remote, nil
+}
+
+func UpdateStorageProvider(db *sql.DB, storageType, remote string) error {
+	_, err := db.Exec(`UPDATE storage_provider SET storage_type = ?, remote = ?
+		WHERE id = (SELECT id FROM storage_provider ORDER BY id DESC LIMIT 1)`, storageType, remote)
+	return err
 }
